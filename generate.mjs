@@ -232,6 +232,37 @@ function buildChartHtml(payload) {
   #tip .rets{display:flex;gap:12px;font-size:11px;color:var(--mut)}
   #tip .rets b{font-weight:700}
   a{color:inherit;text-decoration:none}
+  /* modal */
+  #modal{position:fixed;inset:0;z-index:50;background:#05070bd9;backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:24px}
+  #modal.on{display:flex}
+  #modal .card{width:min(560px,94vw);max-height:86vh;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 80px #000c;overflow:hidden;animation:pop .12s ease}
+  @keyframes pop{from{transform:scale(.97);opacity:.4}to{transform:scale(1);opacity:1}}
+  #modal .mhead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--mut);flex:0 0 auto}
+  #modal .mhead b{color:var(--txt);font-size:14px}
+  #modal .back,#modal .x{cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:4px 9px;color:var(--mut);background:#0d1017}
+  #modal .back:hover,#modal .x:hover{color:var(--txt);border-color:#33384a}
+  #modal .x{margin-left:auto}
+  #modal .mlist{overflow-y:auto}
+  #modal .row{display:flex;gap:10px;align-items:flex-start;padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+  #modal .row:hover{background:#171a22}
+  #modal .row .av{width:30px;height:30px;border-radius:50%;flex:0 0 auto;border:2px solid var(--line);object-fit:cover}
+  #modal .row .rmeta{display:flex;gap:7px;align-items:center;font-size:11px;color:var(--mut);margin-bottom:3px;flex-wrap:wrap}
+  #modal .row .rbody{font-size:12.5px;color:var(--txt);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #modal .row .rret{margin-left:auto;font-weight:800;font-size:12px;white-space:nowrap}
+  /* detail */
+  #modal .detail{padding:16px 18px;overflow-y:auto}
+  #modal .dhead{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+  #modal .dhead .av{width:46px;height:46px;border-radius:50%;border:2px solid var(--line);object-fit:cover}
+  #modal .dhead .h{font-weight:700;font-size:15px}
+  #modal .dhead .t{font-size:12px;color:var(--mut)}
+  #modal .dtext{font-size:15px;line-height:1.55;white-space:pre-wrap;margin-bottom:16px}
+  #modal .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+  #modal .grid .cell{background:#0d1017;border:1px solid var(--line);border-radius:9px;padding:9px 10px;text-align:center}
+  #modal .grid .cell .k{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+  #modal .grid .cell .v{font-size:15px;font-weight:800;margin-top:3px}
+  #modal .xbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;border-radius:10px;background:#fff;color:#0a0b0e;font-weight:800;font-size:14px}
+  #modal .xbtn:hover{background:#d7dde6}
+  #modal .badge{font-weight:700;padding:1px 6px;border-radius:5px;font-size:10px}
 </style></head>
 <body>
 <header>
@@ -240,7 +271,7 @@ function buildChartHtml(payload) {
   <div class="legend">
     <span><i style="background:var(--cyan)"></i>trythreews</span>
     <span><i style="background:var(--mag)"></i>nichxbt</span>
-    <span style="color:var(--mut)">▲ announcement · ⊕N = clustered</span>
+    <span style="color:var(--mut)">▲ announcement · ⊕N grouped — click any bubble to expand</span>
   </div>
   <div class="tf">
     <button data-tf="15m">15m</button>
@@ -252,6 +283,7 @@ function buildChartHtml(payload) {
   <div id="chart"><div id="ov"></div><div id="tip"></div></div>
   <aside><div class="head">POSTS — oldest first · click to locate</div><div id="list"></div></aside>
 </div>
+<div id="modal"><div class="card"></div></div>
 <script>
 const DATA = __DATA__;
 const AV = DATA.avatars || {};
@@ -345,15 +377,59 @@ function updateBubbles(){
     b.style.top=(y-36)+'px';
     b.style.borderColor=acctColor(acct);
     b.innerHTML=img+(c.items.length>1?'<span class="cnt">'+c.items.length+'</span>':'')+(ann?'<span class="ann">▲</span>':'');
-    b.onmouseenter=()=>bubbleTip(c.items, c.x, y);
+    const items=c.items;
+    b.onmouseenter=()=>bubbleTip(items, c.x, y);
     b.onmouseleave=()=>{ tip.style.display='none'; };
-    b.onclick=()=>{ if(rep.url) window.open(rep.url,'_blank'); };
+    b.onclick=()=>{ tip.style.display='none'; if(items.length>1) openCluster(items); else openDetail(items[0]); };
   }
   for(;i<pool.length;i++) pool[i].style.display='none';
 }
 chart.timeScale().subscribeVisibleLogicalRangeChange(scheduleUpdate);
 chart.timeScale().subscribeVisibleTimeRangeChange(scheduleUpdate);
 window.addEventListener('resize', scheduleUpdate);
+
+// ---- click-through modal: cluster list -> post detail -> View on X ----
+const modal=document.getElementById('modal');
+const card=modal.querySelector('.card');
+function closeModal(){ modal.classList.remove('on'); card.innerHTML=''; }
+modal.addEventListener('click', e=>{ if(e.target===modal) closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+function rowHTML(p){
+  const av=AV[p.account]?'<img class="av" src="'+AV[p.account]+'" style="border-color:'+acctColor(p.account)+'"/>':'<span class="av"></span>';
+  return '<div class="row" data-id="'+p.time+'-'+esc(p.account)+'">'+av+
+    '<div style="min-width:0;flex:1"><div class="rmeta"><span class="badge" style="background:'+acctColor(p.account)+'22;color:'+acctColor(p.account)+'">@'+esc(p.account)+'</span>'+
+    '<span>'+fmtTime(p.time)+'</span>'+(p.type==='announcement'?'<span style="color:#22d3ee">▲ announce</span>':'')+
+    '<span class="rret" style="color:'+retColor(p.r24h)+'">'+fmtRet(p.r24h)+' /24h</span></div>'+
+    '<div class="rbody">'+esc(p.text)+'</div></div></div>';
+}
+function cell(k,v,color){ return '<div class="cell"><div class="k">'+k+'</div><div class="v" style="color:'+(color||'var(--txt)')+'">'+v+'</div></div>'; }
+function detailHTML(p, backCount){
+  const av=AV[p.account]?'<img class="av" src="'+AV[p.account]+'" style="border-color:'+acctColor(p.account)+'"/>':'<span class="av"></span>';
+  const back = backCount ? '<span class="back">← '+backCount+' posts</span>' : '';
+  const price = p.price!=null ? '$'+Number(p.price).toPrecision(3) : '—';
+  return '<div class="mhead">'+back+'<span class="x">esc ✕</span></div>'+
+    '<div class="detail"><div class="dhead">'+av+'<div><div class="h">@'+esc(p.account)+'</div><div class="t">'+fmtTime(p.time)+
+      (p.type==='announcement'?' · ▲ announcement':'')+' · '+fmtViews(p.views)+' views</div></div></div>'+
+    '<div class="dtext">'+esc(p.text)+'</div>'+
+    '<div class="grid">'+cell('Price',price)+cell('1h',fmtRet(p.r1h),retColor(p.r1h))+cell('4h',fmtRet(p.r4h),retColor(p.r4h))+cell('24h',fmtRet(p.r24h),retColor(p.r24h))+'</div>'+
+    (p.url?'<a class="xbtn" href="'+p.url+'" target="_blank" rel="noopener">View on X →</a>':'<div class="t" style="text-align:center;color:var(--mut)">no link available</div>')+
+    '</div>';
+}
+function openDetail(p, fromItems){
+  card.innerHTML=detailHTML(p, fromItems?fromItems.length:0);
+  card.querySelector('.x').onclick=closeModal;
+  const back=card.querySelector('.back'); if(back) back.onclick=()=>openCluster(fromItems);
+  modal.classList.add('on');
+}
+function openCluster(items){
+  const sorted=[...items].sort((a,b)=>a.time-b.time);
+  card.innerHTML='<div class="mhead"><b>'+items.length+' posts</b> grouped here · click one'+
+    '<span class="x">esc ✕</span></div><div class="mlist">'+sorted.map(rowHTML).join('')+'</div>';
+  card.querySelector('.x').onclick=closeModal;
+  card.querySelectorAll('.row').forEach((row,idx)=>row.onclick=()=>openDetail(sorted[idx], sorted));
+  modal.classList.add('on');
+}
 
 // ---- sidebar list ----
 const list=document.getElementById('list');
@@ -567,7 +643,7 @@ setTF('1h'); render();
     };
     const chartPosts = evaluable.map((r) => ({
       time: r.sec, account: r.account, type: r.type, url: r.url, price: r.entry,
-      text: r.fullText.slice(0, 260), views: r.views,
+      text: r.fullText.slice(0, 1000), views: r.views,
       r1h: r.r1h == null ? null : +r.r1h.toFixed(2),
       r4h: r.r4h == null ? null : +r.r4h.toFixed(2),
       r24h: r.r24h == null ? null : +r.r24h.toFixed(2),
