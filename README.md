@@ -7,15 +7,18 @@ candles — inspired by [rohunvora/tweet-price-charts](https://github.com/rohunv
 ## What's here
 
 ```
+index.html          # ← the published chart (GitHub Pages root). copy of out/chart.html
 generate.mjs        # the analyzer + chart generator (Node, zero deps)
 data/               # scraped tweets (trythreews + nichxbt), input
 assets/             # real X avatars, embedded into the chart as base64
 out/
-  chart.html        # ← open this. self-contained interactive chart
+  chart.html        # self-contained interactive chart (source of index.html)
   chart.json        # correlation stats (original posts only)
   chart.csv         # per-post detail: 1h/4h/24h returns
   *-with-replies.*  # same, but including replies/retweets
 ```
+
+**Live:** https://overstepping.github.io/tweet-price-charts/ (served from root `index.html`).
 
 ## The chart (`out/chart.html`)
 

@@ -6,7 +6,7 @@
   "description": "Correlate $THREE token price with three.ws X posts and render an interactive avatar-bubble chart",
   "bin": { "tweet-price-charts": "generate.mjs" },
   "scripts": {
-    "generate": "node generate.mjs --accounts trythreews,nichxbt --own --chart data/trythreews_tweets_2026-06-15.json \"data/nichxbt_tweets_2026-06-15.json\" \"data/nichxbt_tweets_2026-06-15 (1).json\" \"data/nichxbt_tweets_2026-06-15 (2).json\" \"data/i_tweets_2026-06-15.json\" \"data/i_tweets_2026-06-15 (1).json\" --out out/chart"
+    "generate": "node generate.mjs --accounts trythreews,nichxbt --own --chart data/trythreews_tweets_2026-06-15.json \"data/nichxbt_tweets_2026-06-15.json\" \"data/nichxbt_tweets_2026-06-15 (1).json\" \"data/nichxbt_tweets_2026-06-15 (2).json\" \"data/i_tweets_2026-06-15.json\" \"data/i_tweets_2026-06-15 (1).json\" --out out/chart && cp out/chart.html index.html"
   },
   "engines": { "node": ">=18" }
 }
