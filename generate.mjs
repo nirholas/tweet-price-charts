@@ -200,19 +200,36 @@ function buildChartHtml(payload) {
   :root{--bg:#0a0b0e;--panel:#12141a;--line:#1e2230;--txt:#e7ecf3;--mut:#8b93a7;--cyan:#22d3ee;--mag:#f472b6;--up:#22c55e;--down:#ef4444}
   *{box-sizing:border-box}
   body{margin:0;font:14px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
-  header{display:flex;align-items:center;gap:18px;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  header{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
   header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.2px}
-  header .price{color:var(--mut)}
+  header .price{color:var(--mut);font-size:13px}
   header .price b{color:var(--txt)}
-  .tf{display:flex;gap:6px;margin-left:auto}
-  .tf button{background:var(--panel);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:6px 12px;cursor:pointer;font-weight:600}
+  header .price .live{display:inline-block;width:6px;height:6px;border-radius:50%;background:#22c55e;margin-right:4px;vertical-align:middle;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .tf{display:flex;gap:6px}
+  .tf button{background:var(--panel);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-weight:600;font-size:12px}
   .tf button.on{color:#06121a;background:var(--cyan);border-color:var(--cyan)}
-  .legend{display:flex;gap:14px;color:var(--mut);font-size:12px}
-  .legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
-  .wrap{display:flex;height:calc(100vh - 53px)}
+  .acct-filter{display:flex;gap:5px;margin-left:auto}
+  .acct-filter button{background:var(--panel);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer;font-size:11px;font-weight:700}
+  .acct-filter button.on{border-color:currentColor}
+  .legend{display:flex;gap:14px;color:var(--mut);font-size:11px;align-items:center}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .wrap{display:flex;height:calc(100vh - 50px)}
   #chart{flex:1;position:relative}
-  aside{width:340px;border-left:1px solid var(--line);overflow-y:auto;background:var(--panel)}
-  aside .head{padding:10px 14px;border-bottom:1px solid var(--line);color:var(--mut);font-size:12px;position:sticky;top:0;background:var(--panel);z-index:2}
+  aside{width:340px;border-left:1px solid var(--line);overflow-y:auto;background:var(--panel);display:flex;flex-direction:column}
+  .aside-top{flex:0 0 auto}
+  .aside-top .head{padding:8px 14px;border-bottom:1px solid var(--line);color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--panel)}
+  .top5{background:#0d1017;border-bottom:1px solid var(--line)}
+  .top5 .t5h{padding:8px 14px 6px;font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+  .top5 .t5row{display:flex;gap:8px;align-items:center;padding:7px 14px;border-top:1px solid var(--line);cursor:pointer;font-size:11.5px}
+  .top5 .t5row:hover{background:#171a22}
+  .top5 .t5num{width:16px;text-align:right;color:var(--mut);font-size:10px;font-weight:700;flex:0 0 auto}
+  .top5 .t5av{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);flex:0 0 auto;object-fit:cover}
+  .top5 .t5body{flex:1;min-width:0;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .top5 .t5ret{font-weight:800;font-size:12px;white-space:nowrap;flex:0 0 auto}
+  .aside-feed{flex:1;overflow-y:auto}
+  .aside-feed .head{padding:8px 14px;border-bottom:1px solid var(--line);color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;position:sticky;top:0;background:var(--panel);z-index:2}
+  aside .head{padding:8px 14px;border-bottom:1px solid var(--line);color:var(--mut);font-size:11px;position:sticky;top:0;background:var(--panel);z-index:2}
   .post{padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
   .post:hover{background:#171a22}
   .post .meta{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mut);margin-bottom:4px}
@@ -266,22 +283,35 @@ function buildChartHtml(payload) {
 </style></head>
 <body>
 <header>
-  <h1>three.ws · <span style="color:var(--mut)">posts vs $price</span></h1>
-  <span class="price">last <b id="last">—</b> · <b id="count">—</b> posts</span>
+  <h1>three.ws · <span style="color:var(--mut)">posts vs $THREE</span></h1>
+  <span class="price"><span class="live"></span><b id="last">—</b> <span id="chg"></span> · <b id="count">—</b> posts</span>
   <div class="legend">
-    <span><i style="background:var(--cyan)"></i>trythreews</span>
-    <span><i style="background:var(--mag)"></i>nichxbt</span>
-    <span style="color:var(--mut)">▲ announcement · ⊕N grouped — click any bubble to expand</span>
+    <span><i style="background:var(--cyan)"></i>@trythreews</span>
+    <span><i style="background:var(--mag)"></i>@nichxbt</span>
+    <span>▲ announce · ⊕N grouped</span>
   </div>
   <div class="tf">
     <button data-tf="15m">15m</button>
     <button data-tf="1h" class="on">1h</button>
     <button data-tf="1d">1d</button>
   </div>
+  <div class="acct-filter">
+    <button data-acct="all" class="on" style="color:var(--txt)">All</button>
+    <button data-acct="trythreews" style="color:var(--cyan)">@three</button>
+    <button data-acct="nichxbt" style="color:var(--mag)">@nich</button>
+  </div>
 </header>
 <div class="wrap">
   <div id="chart"><div id="ov"></div><div id="tip"></div></div>
-  <aside><div class="head">POSTS — oldest first · click to locate</div><div id="list"></div></aside>
+  <aside>
+    <div class="aside-top">
+      <div class="top5" id="top5"></div>
+    </div>
+    <div class="aside-feed">
+      <div class="head" id="feed-head">POSTS — oldest first · click to locate</div>
+      <div id="list"></div>
+    </div>
+  </aside>
 </div>
 <div id="modal"><div class="card"></div></div>
 <script>
@@ -357,7 +387,7 @@ function bubbleTip(items, x, y){
 function updateBubbles(){
   const ts=chart.timeScale();
   const pts=[];
-  for(const p of posts){ const x=ts.timeToCoordinate(snapToBar(p.time)); if(x!=null) pts.push({p,x}); }
+  for(const p of visiblePosts){ const x=ts.timeToCoordinate(snapToBar(p.time)); if(x!=null) pts.push({p,x}); }
   // cluster posts whose screen-x are within TH px (pts already time-sorted ≈ x-sorted)
   const TH=20, clusters=[]; let cur=null;
   for(const it of pts){
@@ -431,10 +461,42 @@ function openCluster(items){
   modal.classList.add('on');
 }
 
+// ---- account filter ----
+let activeAcct = 'all';
+let visiblePosts = posts.slice();
+document.querySelectorAll('.acct-filter button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.acct-filter button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    activeAcct=b.dataset.acct;
+    visiblePosts = activeAcct==='all' ? posts.slice() : posts.filter(p=>p.account===activeAcct);
+    document.getElementById('count').textContent=visiblePosts.length;
+    render(); scheduleUpdate();
+  };
+});
+
+// ---- top-5 highest |24h| impact posts ----
+function renderTop5(){
+  const top5el=document.getElementById('top5');
+  const ranked=[...posts].filter(p=>p.r24h!=null).sort((a,b)=>Math.abs(b.r24h)-Math.abs(a.r24h)).slice(0,5);
+  if(!ranked.length){ top5el.innerHTML=''; return; }
+  top5el.innerHTML='<div class="t5h">Top moves after a post (24h)</div>'+
+    ranked.map((p,i)=>{
+      const av=AV[p.account]?'<img class="t5av" src="'+AV[p.account]+'" style="border-color:'+acctColor(p.account)+'" />':'<span class="t5av" style="background:'+acctColor(p.account)+'22"></span>';
+      return '<div class="t5row" data-t="'+p.time+'"><span class="t5num">'+(i+1)+'</span>'+av+
+        '<span class="t5body">'+esc(p.text)+'</span>'+
+        '<span class="t5ret" style="color:'+retColor(p.r24h)+'">'+fmtRet(p.r24h)+'</span></div>';
+    }).join('');
+  top5el.querySelectorAll('.t5row').forEach((row,i)=>{
+    const p=ranked[i];
+    row.onclick=()=>{ openDetail(p); };
+  });
+}
+
 // ---- sidebar list ----
 const list=document.getElementById('list');
 function render(){
-  const ordered=[...posts].sort((a,b)=>a.time-b.time);
+  const ordered=[...visiblePosts].sort((a,b)=>a.time-b.time);
   list.innerHTML=ordered.map(p=>'<div class="post" data-t="'+p.time+'">'+
     '<div class="meta"><span class="badge" style="background:'+acctColor(p.account)+'22;color:'+acctColor(p.account)+'">@'+esc(p.account)+'</span>'+
     '<span>'+fmtTime(p.time)+'</span>'+(p.type==='announcement'?'<span style="color:#22d3ee">▲ announce</span>':'')+
@@ -447,8 +509,30 @@ function render(){
   });
 }
 
+// ---- live price (best-effort, no stale data if fetch fails) ----
+(async()=>{
+  try{
+    const r=await fetch('https://api.geckoterminal.com/api/v2/networks/solana/pools/5ByL7MZoLABYnwMPZKPKjf4MGkZ7FeBzrAnos19Pre2z',{headers:{accept:'application/json'}});
+    if(!r.ok) throw 0;
+    const d=await r.json();
+    const attrs=d?.data?.attributes;
+    if(!attrs) throw 0;
+    const price=attrs.base_token_price_usd;
+    const chg=attrs.price_change_percentage?.h24;
+    const priceEl=document.getElementById('last');
+    const chgEl=document.getElementById('chg');
+    if(price) priceEl.textContent='$'+Number(price).toPrecision(4);
+    if(chg!=null){
+      const pct=parseFloat(chg);
+      chgEl.textContent=(pct>=0?'+':'')+pct.toFixed(1)+'% 24h';
+      chgEl.style.color=pct>=0?'#22c55e':'#ef4444';
+    }
+  }catch(e){ /* keep static price from build time */ }
+})();
+
 document.getElementById('count').textContent=DATA.posts.length;
 document.getElementById('last').textContent='$'+DATA.meta.lastPrice;
+renderTop5();
 setTF('1h'); render();
 </script></body></html>`;
   return TEMPLATE.replace('__DATA__', JSON.stringify(payload));
