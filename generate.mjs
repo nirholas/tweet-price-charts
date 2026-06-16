@@ -12,8 +12,11 @@
 // Price history is pulled from GeckoTerminal (free, no key) for the $THREE pool, and a
 // current snapshot from DexScreener. No mocks, no synthetic data.
 
-import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 const POOL = '5ByL7MZoLABYnwMPZKPKjf4MGkZ7FeBzrAnos19Pre2z'; // pumpswap THREE/SOL
@@ -25,11 +28,59 @@ const outBase = outArg !== -1 ? args[outArg + 1] : 'scripts/.corr-out';
 const acctArg = args.indexOf('--accounts');
 const ACCOUNTS = acctArg !== -1 ? args[acctArg + 1].toLowerCase().split(',') : null;
 const ownOnly = args.includes('--own');
+
+// --fetch-tweets: pull fresh tweets from a running XActions instance before generating.
+// Requires XACTIONS_URL (default: http://localhost:3001) and XACTIONS_COOKIE env vars.
+const FETCH_TWEETS = args.includes('--fetch-tweets');
+const XACTIONS_URL = process.env.XACTIONS_URL || 'http://localhost:3001';
+const XACTIONS_ACCOUNTS = (ACCOUNTS || ['trythreews', 'nichxbt']);
+
 const valueArgs = new Set([outArg + 1, acctArg + 1].filter((i) => i > 0));
 const postsPaths = args.filter((a, i) => !a.startsWith('--') && !valueArgs.has(i));
 
-if (!postsPaths.length) {
-  console.error('Usage: node scripts/test-corr.mjs <posts1.json> [posts2.json ...] [--out scripts/.corr-out]');
+// ---- XActions tweet fetch (optional, requires running XActions instance) ----
+async function fetchTweetsFromXActions(account) {
+  const cookie = process.env.XACTIONS_COOKIE;
+  const body = { username: account, limit: 200, ...(cookie ? { sessionCookie: cookie } : {}) };
+  const r = await fetch(`${XACTIONS_URL}/api/ai/scrape/tweets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(cookie ? { 'X-Session-Cookie': cookie } : {}) },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!r.ok) throw new Error(`XActions ${r.status}: ${await r.text()}`);
+  const d = await r.json();
+  if (!d.success) throw new Error(`XActions error: ${JSON.stringify(d)}`);
+  // Map XActions format → generate.mjs format
+  return (d.data?.results || []).map((t) => ({
+    id: t.id,
+    text: t.text,
+    timestamp: t.createdAt,
+    url: t.url,
+    metrics: { likes: t.metrics?.likes || 0, retweets: t.metrics?.retweets || 0, replies: t.metrics?.replies || 0, views: t.metrics?.views || 0 },
+    type: { isRetweet: false, isReply: (t.text || '').startsWith('@') },
+    profile: account,
+  }));
+}
+
+async function maybeRefreshTweets() {
+  if (!FETCH_TWEETS) return;
+  console.log(`Fetching fresh tweets from XActions at ${XACTIONS_URL}…`);
+  for (const acct of XACTIONS_ACCOUNTS) {
+    const outFile = join(__dirname, `data/${acct}_tweets_${new Date().toISOString().slice(0, 10)}.json`);
+    try {
+      const tweets = await fetchTweetsFromXActions(acct);
+      writeFileSync(outFile, JSON.stringify({ tweets }, null, 2));
+      console.log(`  ${acct}: ${tweets.length} tweets → ${outFile}`);
+      postsPaths.push(outFile);
+    } catch (err) {
+      console.warn(`  ${acct}: XActions fetch failed — ${err.message}. Using existing files.`);
+    }
+  }
+}
+
+if (!FETCH_TWEETS && !postsPaths.length) {
+  console.error('Usage: node generate.mjs <posts1.json> [posts2.json ...] [--fetch-tweets] [--out out/chart]');
   process.exit(1);
 }
 
@@ -540,6 +591,8 @@ setTF('1h'); render();
 
 // ---- main -----------------------------------------------------------------
 (async () => {
+  await maybeRefreshTweets();
+  if (!postsPaths.length) { console.error('No tweet files. Pass JSON paths or use --fetch-tweets.'); process.exit(1); }
   const posts = loadPosts(postsPaths);
   const earliestSec = Math.floor(posts[0].ms / 1000) - 3 * 3600;
   const acctCounts = {};
