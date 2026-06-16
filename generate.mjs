@@ -35,6 +35,12 @@ const FETCH_TWEETS = args.includes('--fetch-tweets');
 const XACTIONS_URL = process.env.XACTIONS_URL || 'http://localhost:3001';
 const XACTIONS_ACCOUNTS = (ACCOUNTS || ['trythreews', 'nichxbt']);
 
+// --push-social: after analysis, POST the tweets to the Oracle social signal endpoint
+// so coin mentions update virality scores in real-time.
+// Requires THREE_WS_URL (default: https://three.ws) env var.
+const PUSH_SOCIAL = args.includes('--push-social');
+const THREE_WS_URL = (process.env.THREE_WS_URL || 'https://three.ws').replace(/\/$/, '');
+
 const valueArgs = new Set([outArg + 1, acctArg + 1].filter((i) => i > 0));
 const postsPaths = args.filter((a, i) => !a.startsWith('--') && !valueArgs.has(i));
 
@@ -82,6 +88,33 @@ async function maybeRefreshTweets() {
 if (!FETCH_TWEETS && !postsPaths.length) {
   console.error('Usage: node generate.mjs <posts1.json> [posts2.json ...] [--fetch-tweets] [--out out/chart]');
   process.exit(1);
+}
+
+// ---- Oracle social signal push (optional) ----
+async function pushSocialSignal(posts) {
+  if (!PUSH_SOCIAL) return;
+  const url = `${THREE_WS_URL}/api/oracle/social`;
+  // Map our internal post format to the XActions tweet shape Oracle expects
+  const tweets = posts.map(p => ({
+    id: p.id || `${p.account}:${p.ms}`,
+    text: p.text,
+    createdAt: new Date(p.ms).toISOString(),
+    url: p.url || '',
+    author: { username: p.account },
+    metrics: { views: p.views || 0, likes: p.likes || 0, retweets: p.rts || 0 },
+  }));
+  console.log(`Pushing ${tweets.length} tweets to Oracle social signal (${url})…`);
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tweets }),
+    });
+    const d = await r.json().catch(() => ({}));
+    console.log(`  Oracle social: ${d.mints_updated || 0} mints updated, ${d.symbols_found || 0} symbols found`);
+  } catch (err) {
+    console.warn(`  Oracle social push failed: ${err.message}`);
+  }
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -767,6 +800,9 @@ setTF('1h'); render();
   console.log(`  posts/day vs daily return: ${f(dailyCorr.postsPerDay_vs_dailyReturn)}`);
   console.log(`  posts/day vs daily volume: ${f(dailyCorr.postsPerDay_vs_dailyVolume)}`);
   console.log(`\nWrote ${outBase}.json and ${outBase}.csv`);
+
+  // Push tweets to Oracle social signal endpoint (--push-social flag)
+  await pushSocialSignal(posts);
 
   if (args.includes('--chart')) {
     console.log('Fetching 15m candles for chart…');
